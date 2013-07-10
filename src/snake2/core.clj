@@ -50,6 +50,11 @@
    :color (Color. 15 160 70)
    :type :snake})
 
+(defn create-walls []
+  {:coordinates (list [20 1] [20 2] [20 3] [20 4])
+   :color (Color. 139 69 19)
+   :type :walls})
+
 ;Constantly movement without our navigation
 (defn move [{:keys [body dir] :as snake} & grow]
   (assoc snake :body (cons (add-points (first body) dir)
@@ -64,9 +69,10 @@
   (contains? (set body) head))
 
 (defn head-crashed-wall? [{[head] :body}]
-  (not (and
+  (or (not (and
          (<= 0 (head 0) board-width)
-         (<= 0 (head 1) board-height))))
+         (<= 0 (head 1) board-height)))
+      (contains? (set (:coordinates (create-walls))) head)))
 
 (defn lose-game? [snake]
   (or (head-crashed-body? snake)
@@ -113,13 +119,19 @@
   (doseq [point body]
     (fill-point g point color)))
 
-(defn game-board [frame snake apple]
+(defmethod paint :walls [g {:keys [coordinates color]}]
+  (doseq [point coordinates]
+    (fill-point g point color)))
+
+
+(defn game-board [frame snake apple walls]
 ;TODO read more about "proxy"
   (proxy [JPanel ActionListener KeyListener] []
     (paintComponent [g]
       (proxy-super paintComponent g)
       (paint g @snake)
-      (paint g @apple))
+      (paint g @apple)
+      (paint g walls))
     (actionPerformed [e]
       ;actionPerformed is called on every timer tick
       (update-positions snake apple)
@@ -141,8 +153,9 @@
 (defn game []
   (let [snake (ref (create-snake))
         apple (ref (create-apple))
+        walls (create-walls)
         frame (JFrame. "Clojure Snake")
-        board (game-board frame snake apple)
+        board (game-board frame snake apple walls)
         timer (Timer. game-speed-millis board)]
     (doto board
       (.setFocusable true)

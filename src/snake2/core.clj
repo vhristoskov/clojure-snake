@@ -4,12 +4,6 @@
            (java.awt.event ActionListener KeyListener KeyEvent))
   (:use clojure.java.io))
 
-;(defn -main
-;  "I don't do a whole lot ... yet."
-;  [& args]
-;  ;; work around dangerous default behaviour in Clojure
-;  (alter-var-root #'*read-eval* (constantly false))
-;  (println "Hello, World!"))
 
 ;Work with files
 
@@ -39,7 +33,7 @@
 (defn add-points [& pts]
   (vec (apply map + pts)))
 
-(defn point-to-screen-rect
+(defn convert-point-to-screen-rect
   "Converts a point in game space to a rect on the screen"
   [pt]
   (map #(* point-size % )
@@ -56,6 +50,7 @@
    :color (Color. 15 160 70)
    :type :snake})
 
+;Constantly movement without our navigation
 (defn move [{:keys [body dir] :as snake} & grow]
   (assoc snake :body (cons (add-points (first body) dir)
                             (if grow
@@ -70,8 +65,8 @@
 
 (defn head-crashed-wall? [{[head] :body}]
   (not (and
-         (< 0 (head 0) board-width)
-         (< 0 (head 1) board-height))))
+         (<= 0 (head 0) board-width)
+         (<= 0 (head 1) board-height))))
 
 (defn lose-game? [snake]
   (or (head-crashed-body? snake)
@@ -83,5 +78,84 @@
 (defn turn-snake [snake newdir]
   (assoc snake :dir newdir))
 
+;The mutable model with STM
+(defn reset-game [snake apple]
+;TODO read more about the refs
+  (dosync (ref-set apple (create-apple))
+          (ref-set snake (create-snake)))
+  nil)
 
+(defn update-dir [snake newdir]
+  (when newdir
+    (dosync (alter snake turn-snake newdir))))
 
+(defn update-positions [snake apple]
+  (dosync
+    (if (eats-apple? @snake @apple)
+      (do (ref-set apple (create-apple))
+           (alter snake move :growfat))
+      (alter snake move)))
+   nil)
+
+;GUI
+
+(defn fill-point [g pt color]
+  (let [[x y width height] (convert-point-to-screen-rect pt)]
+        (.setColor g color)
+        (.fillRect g x y width height)))
+
+(defmulti paint (fn [g object & _] (:type object)))
+
+(defmethod paint :apple [g {:keys [location color]}]
+  (fill-point g location color))
+
+(defmethod paint :snake [g {:keys [body color]}]
+  (doseq [point body]
+    (fill-point g point color)))
+
+(defn game-board [frame snake apple]
+;TODO read more about "proxy"
+  (proxy [JPanel ActionListener KeyListener] []
+    (paintComponent [g]
+      (proxy-super paintComponent g)
+      (paint g @snake)
+      (paint g @apple))
+    (actionPerformed [e]
+      ;actionPerformed is called on every timer tick
+      (update-positions snake apple)
+      (when (lose-game? @snake)
+        (reset-game snake apple)
+        (JOptionPane/showMessageDialog frame "You lose!"))
+      (when (win? @snake)
+        (reset-game snake apple)
+        (JOptionPane/showMessageDialog frame "You win!"))
+      (.repaint this))
+    (keyPressed [e]
+      (update-dir snake (dirs (.getKeyCode e))))
+    (getPreferredSize []
+      (Dimension. (* (inc board-width) point-size)
+                  (* (inc board-height) point-size)))
+    (keyReleased [e])
+    (keyTyped [e])))
+
+(defn game []
+  (let [snake (ref (create-snake))
+        apple (ref (create-apple))
+        frame (JFrame. "Clojure Snake")
+        board (game-board frame snake apple)
+        timer (Timer. game-speed-millis board)]
+    (doto board
+      (.setFocusable true)
+      (.addKeyListener board))
+    (doto frame
+      (.add board)
+      (.pack)
+      (.setVisible true))
+    (.start timer)
+
+;    [snake apple timer]
+
+))
+
+(defn -main [& args]
+  (game))

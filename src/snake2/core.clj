@@ -8,21 +8,23 @@
 ;Constants
 
 (def highscore-filename "snake_highscore.txt")
-
+(def lv2-filename "snake_lv2.txt")
 (def board-width 50)
 (def board-height 25)
 (def point-size 15)
 (def game-speed-millis 75)
-(def win-length 10)
+(def win-length 20)
 (def dirs {KeyEvent/VK_LEFT [-1 0]
            KeyEvent/VK_RIGHT [1 0]
            KeyEvent/VK_UP [0 -1]
            KeyEvent/VK_DOWN [0 1]})
 
 (def points-per-apple 1)
-(def lv2-score (* 10 points-per-apple))
+(def lv2-score (* 5 points-per-apple))
 (def lv3-score (* 10 points-per-apple))
+(def levels {lv2-score "snake_lv2.txt" lv3-score "snake_lv3.txt"})
 (def current-score (ref 0))
+(def current-level (atom 1))
 
 (defn create-board-coords []
   (for [x (range board-width)
@@ -30,6 +32,10 @@
     [x y]))
 
 (def board-coords (create-board-coords))
+
+(defn default-snake-pos [{body :body}]
+  (for [x (range 1 (count body))]
+    [x 10]))
 
 ;Work with files
 
@@ -48,6 +54,20 @@
     (when (> @current-score highscore)
       (serialize @current-score highscore-filename)
       (JOptionPane/showMessageDialog frame (str "New Highscore: " @current-score)))))
+
+(defn update-wall-coordinates [walls new-coordinates]
+  (assoc walls :coordinates new-coordinates))
+
+(defn reset-snake-position [snake]
+  (do (assoc snake :body (default-snake-pos snake))
+      (assoc snake :dir [1 0])))
+
+(defn load-new-level [snake apple walls frame]
+  (when-let [level-filename (levels @current-score)]
+    (dosync (alter walls update-wall-coordinates (deserialize level-filename))
+            (alter snake reset-snake-position)
+            (swap! current-level inc))
+    (JOptionPane/showMessageDialog frame (str "Level: " @current-level))))
 
 ;Used to calculate the new position of a moving game obj
 (defn add-points [& pts]
@@ -72,7 +92,7 @@
    :type :snake})
 
 (defn create-walls []
-  {:coordinates (list [20 1] [20 2] [20 3] [20 4])
+  {:coordinates ()  ;(list [20 1] [20 2] [20 3] [20 4])
    :color (Color. 139 69 19)
    :type :walls})
 
@@ -89,15 +109,15 @@
 (defn head-crashed-body? [{[head & body] :body}]
   (contains? (set body) head))
 
-(defn head-crashed-wall? [{[head] :body}]
+(defn head-crashed-wall? [{[head] :body} {walls :coordinates}]
   (or (not (and
          (<= 0 (head 0) board-width)
          (<= 0 (head 1) board-height)))
-      (contains? (set (:coordinates (create-walls))) head)))
+      (contains? (set walls) head)))
 
-(defn lose-game? [snake]
+(defn lose-game? [snake walls]
   (or (head-crashed-body? snake)
-    (head-crashed-wall? snake)))
+    (head-crashed-wall? snake walls)))
 
 (defn eat-apple? [{[head] :body} {apple-location :location}]
   (= head apple-location))
@@ -110,19 +130,22 @@
 ;TODO read more about the refs
   (dosync (ref-set apple (create-apple walls))
           (ref-set snake (create-snake))
-          (ref-set current-score 0))
+          (ref-set current-score 0)
+          (ref-set walls (create-walls)
+          (swap! current-level 1)))
   nil)
 
 (defn update-dir [snake newdir]
   (when newdir
     (dosync (alter snake turn-snake newdir))))
 
-(defn update-positions [snake apple walls]
+(defn update-positions [snake apple walls frame]
   (dosync
     (if (eat-apple? @snake @apple)
       (do (ref-set apple (create-apple walls))
           (alter snake move :growfat)
-          (alter current-score + points-per-apple))
+          (alter current-score + points-per-apple)
+          (load-new-level snake apple walls frame))
       (alter snake move)))
    nil)
 
@@ -167,10 +190,11 @@
       (paint g @walls))
     (actionPerformed [e]
       ;actionPerformed is called on every timer tick
-      (update-positions snake apple walls)
+      (update-positions snake apple walls frame)
+;      (load-new-level snake apple walls frame)
       (prn @current-score)
 ;      (.setText scorelabel (str "Score: " @current-score))
-      (when (lose-game? @snake)
+      (when (lose-game? @snake @walls)
         (JOptionPane/showMessageDialog frame "You lose! Try your skills again.")
         (save-highscore frame)
         (reset-game snake apple walls))
@@ -188,7 +212,7 @@
     (keyTyped [e])))
 
 (defn game []
-  (let [walls (atom (create-walls))
+  (let [walls (ref (create-walls))
         snake (ref (create-snake))
         apple (ref (create-apple walls))
         frame (JFrame. "Clojure Snake")

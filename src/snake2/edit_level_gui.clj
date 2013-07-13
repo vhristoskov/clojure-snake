@@ -3,8 +3,6 @@
         (snake2 constants edit-level-logic)))
 
 
-;(def board-margin 10)
-
 (defn point-to-screen
   "Converts a point in game space to a rect on the screen"
   [point]
@@ -48,14 +46,15 @@
       :north (toolbar :items [open-action save-action clear-action exit-action])
       :center (canvas :paint draw-board
                       :class :board
-                      :background :gray)
+                      :background :gray
+                      :size [board-real-width :by board-real-height])
       :vgap 5
       :hgap 5
       :border 5)))
 
 (defn make-frame []
   (frame :title "Snake Level Editor"
-         :size [600 :by 600]
+         :size [board-real-width :by board-real-height]
          :content (make-content-panel)
          :on-close :exit))
 

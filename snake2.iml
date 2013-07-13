@@ -11,6 +11,17 @@
     <orderEntry type="jdk" jdkName="1.6" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="Leiningen: org.clojure:clojure:1.5.1" level="project" />
+    <orderEntry type="library" name="Leiningen: seesaw:seesaw:1.4.3" level="project" />
+    <orderEntry type="library" name="Leiningen: com.jgoodies:forms:1.2.1" level="project" />
+    <orderEntry type="library" name="Leiningen: com.miglayout:miglayout:3.7.4" level="project" />
+    <orderEntry type="library" name="Leiningen: j18n:j18n:1.0.1" level="project" />
+    <orderEntry type="library" name="Leiningen: org.fife.ui:rsyntaxtextarea:2.0.4.1" level="project" />
+    <orderEntry type="library" name="Leiningen: org.swinglabs.swingx:swingx-core:1.6.3" level="project" />
+    <orderEntry type="library" name="Leiningen: org.swinglabs.swingx:swingx-action:1.6.3" level="project" />
+    <orderEntry type="library" name="Leiningen: org.swinglabs.swingx:swingx-autocomplete:1.6.3" level="project" />
+    <orderEntry type="library" name="Leiningen: org.swinglabs.swingx:swingx-painters:1.6.3" level="project" />
+    <orderEntry type="library" name="Leiningen: org.swinglabs.swingx:swingx-plaf:1.6.3" level="project" />
+    <orderEntry type="library" name="Leiningen: org.swinglabs.swingx:swingx-common:1.6.3" level="project" />
   </component>
 </module>
 

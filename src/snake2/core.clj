@@ -2,27 +2,15 @@
   (:import (java.awt Color Dimension)
            (javax.swing JPanel JFrame Timer JOptionPane JLabel)
            (java.awt.event ActionListener KeyListener KeyEvent))
-  (:use clojure.java.io))
+  (:use (snake2 [edit-level-gui :only (point-to-screen start-level-editor)]
+                constants
+                data-manager)))
 
-
-;Constants
-
-(def highscore-filename "snake_highscore.txt")
-(def lv2-filename "snake_lv2.txt")
-(def board-width 50)
-(def board-height 25)
-(def point-size 15)
-(def game-speed-millis 75)
-(def win-length 20)
 (def dirs {KeyEvent/VK_LEFT [-1 0]
            KeyEvent/VK_RIGHT [1 0]
            KeyEvent/VK_UP [0 -1]
            KeyEvent/VK_DOWN [0 1]})
 
-(def points-per-apple 1)
-(def lv2-score (* 5 points-per-apple))
-(def lv3-score (* 10 points-per-apple))
-(def levels {lv2-score "snake_lv2.txt" lv3-score "snake_lv3.txt"})
 (def current-score (ref 0))
 (def current-level (atom 1))
 
@@ -38,22 +26,12 @@
     [x 10]))
 
 ;Work with files
-
-;Here '#^String is maybe type hinting'
-(defn serialize [data-structure #^String filename]
-  ;'with-open' ensures that the reader is closed at the end of the form
-  (with-open [w (writer (file filename))]
-    (print-dup data-structure w)))
-
-(defn deserialize [filename]
-  (with-open [r (java.io.PushbackReader. (reader filename))]
-    (read r)))
-
 (defn save-highscore [frame]
   (let [highscore (deserialize highscore-filename)]
     (when (> @current-score highscore)
       (serialize @current-score highscore-filename)
       (JOptionPane/showMessageDialog frame (str "New Highscore: " @current-score)))))
+
 
 (defn update-wall-coordinates [walls new-coordinates]
   (assoc walls :coordinates new-coordinates))
@@ -65,19 +43,17 @@
 (defn load-new-level [snake apple walls frame]
   (when-let [level-filename (levels @current-score)]
     (dosync (alter walls update-wall-coordinates (deserialize level-filename))
-            (alter snake reset-snake-position)
+;            (alter snake reset-snake-position)
             (swap! current-level inc))
     (JOptionPane/showMessageDialog frame (str "Level: " @current-level))))
 
-;Used to calculate the new position of a moving game obj
-(defn add-points [& pts]
+
+(defn add-points
+  "Used to calculate the new position of
+  a moving game obj (ex. point from the snake body)"
+  [& pts]
   (vec (apply map + pts)))
 
-(defn convert-point-to-screen-rect
-  "Converts a point in game space to a rect on the screen"
-  [pt]
-  (map #(* point-size % )
-       [(pt 0) (pt 1) 1 1]))
 
 (defn create-apple [{walls-coords :coordinates}]
   (let [availabe-coords (remove (set walls-coords) board-coords)]
@@ -92,7 +68,7 @@
    :type :snake})
 
 (defn create-walls []
-  {:coordinates ()  ;(list [20 1] [20 2] [20 3] [20 4])
+  {:coordinates []  ;(list [20 1] [20 2] [20 3] [20 4])
    :color (Color. 139 69 19)
    :type :walls})
 
@@ -131,8 +107,8 @@
   (dosync (ref-set apple (create-apple walls))
           (ref-set snake (create-snake))
           (ref-set current-score 0)
-          (ref-set walls (create-walls)
-          (swap! current-level 1)))
+          (ref-set walls (create-walls))
+          (reset! current-level 1))
   nil)
 
 (defn update-dir [snake newdir]
@@ -151,9 +127,8 @@
 
 ;GUI
 
-(def border-size 3)
 (defn fill-point [g pt color]
-  (let [[x y width height] (convert-point-to-screen-rect pt)]
+  (let [[x y width height] (point-to-screen pt)]
         (.setColor g color)
         (.fillRect g x y width height)
 ;  Draw Shadows for more realistic 3-D effect
@@ -196,6 +171,7 @@
 ;      (.setText scorelabel (str "Score: " @current-score))
       (when (lose-game? @snake @walls)
         (JOptionPane/showMessageDialog frame "You lose! Try your skills again.")
+        (prn "After pushing the button")
         (save-highscore frame)
         (reset-game snake apple walls))
       (when (win? @snake)
@@ -231,4 +207,5 @@
 ))
 
 (defn -main [& args]
-  (game))
+;  (game))
+  (start-level-editor))
